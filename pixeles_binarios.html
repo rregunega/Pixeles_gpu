@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Píxeles Binarios · ¿Cómo guarda una foto la computadora?</title>
+<meta name="description" content="Editor de píxeles educativo: dibujá en una grilla y mirá el código en bits (ceros y unos) que representa tu imagen, en blanco y negro o en color.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1220; --panel:#181c30; --panel2:#20253f; --line:#2e3558;
+    --text:#e8ebff; --muted:#9aa3d1; --accent:#7c5cff; --accent2:#22d3ee;
+    --ok:#34d399; --warn:#fbbf24; --cell:28px;
+    --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:'Outfit',system-ui,sans-serif; color:var(--text);
+    background:radial-gradient(1200px 600px at 10% -10%,#2a1f66 0%,transparent 60%),
+               radial-gradient(900px 500px at 110% 10%,#0e4a5c 0%,transparent 55%),var(--bg);
+    min-height:100vh;
+  }
+  header{padding:18px 24px 6px; display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+  .logo{width:42px;height:42px;display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+  .logo i{border-radius:2px;background:var(--panel2)}
+  .logo i.on{background:linear-gradient(135deg,var(--accent),var(--accent2))}
+  h1{margin:0;font-size:1.6rem;font-weight:800;letter-spacing:.3px}
+  h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  header p{margin:0;color:var(--muted);font-size:.95rem;width:100%}
+
+  main{display:grid;grid-template-columns:300px 1fr;gap:18px;padding:12px 24px 28px}
+  @media (max-width:900px){main{grid-template-columns:1fr}}
+
+  .card{background:linear-gradient(180deg,var(--panel),#151933);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  .card h2{margin:0 0 10px;font-size:.8rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:600}
+  aside{display:flex;flex-direction:column;gap:14px}
+
+  label{font-size:.9rem;color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  input[type=number]{width:64px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font:600 1rem 'Outfit',sans-serif;text-align:center}
+  button,.seg label{
+    font:600 .9rem 'Outfit',sans-serif;color:var(--text);background:var(--panel2);
+    border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;
+    transition:transform .12s, background .2s, border-color .2s, box-shadow .2s;
+  }
+  button:hover{border-color:var(--accent);transform:translateY(-1px)}
+  button:active{transform:translateY(0) scale(.97)}
+  button.primary{background:linear-gradient(135deg,var(--accent),#5b8cff);border:none;box-shadow:0 4px 14px rgba(124,92,255,.4)}
+  button.active{border-color:var(--accent2);box-shadow:0 0 0 2px rgba(34,211,238,.35) inset;background:#1d2a48}
+
+  .seg{display:flex;flex-direction:column;gap:6px}
+  .seg input{display:none}
+  .seg label{display:flex;justify-content:space-between;align-items:center;color:var(--text)}
+  .seg label small{color:var(--muted);font-family:var(--mono)}
+  .seg input:checked + label{border-color:var(--accent2);background:#1d2a48;box-shadow:0 0 0 2px rgba(34,211,238,.3) inset}
+
+  .palette{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .swatch{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;transition:.15s}
+  .swatch:hover{border-color:var(--accent)}
+  .swatch.sel{border-color:var(--accent2);box-shadow:0 0 0 2px rgba(34,211,238,.35)}
+  .swatch b{width:22px;height:22px;border-radius:6px;border:1px solid #0006;flex:none}
+  .swatch span{font-size:.85rem;line-height:1.1}
+  .swatch code{display:block;font-family:var(--mono);color:var(--accent2);font-size:.8rem}
+
+  .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .tools button{padding:8px 4px}
+
+  .stage{display:flex;flex-direction:column;gap:16px;min-width:0}
+  .canvas-wrap{display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:8px}
+  .board{display:grid;gap:0;user-select:none;touch-action:none}
+  .board .hd{font:700 .7rem var(--mono);color:var(--muted);display:flex;align-items:center;justify-content:center}
+  .grid{display:grid;border:2px solid var(--line);border-radius:6px;overflow:hidden;background:#fff;box-shadow:0 14px 40px rgba(0,0,0,.45)}
+  .cell{width:var(--cell);height:var(--cell);border-right:1px solid #0002;border-bottom:1px solid #0002;
+        display:flex;align-items:center;justify-content:center;font:700 calc(var(--cell)*.32) var(--mono);
+        color:#0007;transition:background-color .08s;cursor:crosshair}
+  .cell.dark{color:#fff9}
+  .cell.hl{outline:3px solid var(--accent2);outline-offset:-3px;position:relative;z-index:1}
+  .grid.nogrid .cell{border-color:transparent}
+  .grid.nonum .cell{color:transparent!important}
+
+  .stats{display:flex;gap:10px;flex-wrap:wrap}
+  .stat{flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  .stat small{color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:1px}
+  .stat div{font:800 1.3rem 'Outfit';margin-top:2px}
+  .stat div em{font-style:normal;color:var(--accent2);font-size:.95rem;font-weight:600}
+
+  .code-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .code{font-family:var(--mono);font-size:1rem;line-height:1.7;background:#0b0e1a;border:1px solid var(--line);border-radius:12px;padding:12px 14px;max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+  .code .ln{color:#55608f;user-select:none}
+  .code .b{padding:1px 2px;border-radius:4px;cursor:default;transition:background .1s}
+  .code .b.hl{background:var(--accent);color:#fff}
+  .code .one{color:#f0f3ff}
+  .code .zero{color:#6b76a8}
+  textarea{width:100%;min-height:80px;resize:vertical;font:1rem var(--mono);background:#0b0e1a;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:10px}
+  .msg{font-size:.9rem;margin-top:8px;min-height:1.2em}
+  .msg.ok{color:var(--ok)} .msg.warn{color:var(--warn)}
+  .check{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--text);cursor:pointer}
+  .check input{accent-color:var(--accent);width:16px;height:16px}
+  .hint{color:var(--muted);font-size:.8rem;margin-top:8px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ok);color:#062;font-weight:700;padding:10px 18px;border-radius:999px;transition:transform .3s;z-index:9}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" aria-hidden="true"><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i></div>
+  <h1>Píxeles <span>Binarios</span></h1>
+  <p>¿Cómo guarda una computadora una imagen si adentro solo hay ceros y unos? Dibujá y mirá el código.</p>
+</header>
+
+<main>
+  <aside>
+    <section class="card">
+      <h2>Tamaño de la matriz</h2>
+      <div class="row">
+        <input type="number" id="inCols" min="2" max="32" value="8" aria-label="Columnas">
+        <span>×</span>
+        <input type="number" id="inRows" min="2" max="32" value="8" aria-label="Filas">
+        <button id="btnResize" class="primary">Aplicar</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button data-size="4">4×4</button><button data-size="8">8×8</button>
+        <button data-size="16">16×16</button><button data-size="24">24×24</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label for="inZoom">Zoom</label>
+        <input type="range" id="inZoom" min="12" max="60" value="40" style="flex:1">
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Modo de color</h2>
+      <div class="seg" id="modes">
+        <input type="radio" name="mode" id="m1" value="1" checked><label for="m1">Blanco y negro <small>1 bit/píxel</small></label>
+        <input type="radio" name="mode" id="m2" value="2"><label for="m2">4 colores <small>2 bits/píxel</small></label>
+        <input type="radio" name="mode" id="m3" value="3"><label for="m3">8 colores <small>3 bits/píxel</small></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Código de colores</h2>
+      <div class="palette" id="palette"></div>
+      <p class="hint">Atajo: teclas <b>0</b>–<b>7</b> para elegir color. Clic derecho = borrar.</p>
+    </section>
+
+    <section class="card">
+      <h2>Herramientas</h2>
+      <div class="tools">
+        <button id="tPen" class="active" title="Lápiz">✏️ Lápiz</button>
+        <button id="tErase" title="Goma">🧽 Goma</button>
+        <button id="tFill" title="Balde">🪣 Balde</button>
+        <button id="btnInvert" title="Invertir (solo B/N)">🔄 Invertir</button>
+        <button id="btnUndo" title="Deshacer (Ctrl+Z)">↩️ Deshacer</button>
+        <button id="btnClear" title="Limpiar">🗑️ Limpiar</button>
+      </div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
+        <label class="check"><input type="checkbox" id="chkNum" checked> Mostrar código en cada celda</label>
+        <label class="check"><input type="checkbox" id="chkGrid" checked> Mostrar cuadrícula</label>
+        <label class="check"><input type="checkbox" id="chkHead" checked> Numerar filas y columnas</label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Íconos de ejemplo (8×8)</h2>
+      <div class="row">
+        <button data-tpl="corazon">❤️ Corazón</button>
+        <button data-tpl="fantasma">👻 Fantasma</button>
+        <button data-tpl="espada">🗡️ Espada</button>
+        <button data-tpl="carita">🙂 Carita</button>
+        <button data-tpl="flecha">⬆️ Flecha</button>
+      </div>
+    </section>
+  </aside>
+
+  <div class="stage">
+    <section class="card">
+      <div class="canvas-wrap"><div class="board" id="board"></div></div>
+    </section>
+
+    <section class="stats">
+      <div class="stat"><small>Píxeles</small><div id="sPix">64</div></div>
+      <div class="stat"><small>Bits por píxel</small><div id="sBpp">1</div></div>
+      <div class="stat"><small>Tamaño total</small><div id="sBits">64 <em>bits</em></div></div>
+      <div class="stat"><small>En bytes</small><div id="sBytes">8 <em>bytes</em></div></div>
+    </section>
+
+    <section class="card">
+      <div class="code-head">
+        <h2 style="margin:0">Código en bits del dibujo</h2>
+        <div class="row">
+          <label class="check"><input type="radio" name="fmt" value="rows" checked> Por filas</label>
+          <label class="check"><input type="radio" name="fmt" value="strip"> Tira continua</label>
+          <button id="btnCopy">📋 Copiar</button>
+        </div>
+      </div>
+      <div class="code" id="code"></div>
+      <p class="hint">Pasá el mouse por una celda para ver su código resaltado (y al revés).</p>
+    </section>
+
+    <section class="card">
+      <h2>Decodificar: del código al dibujo</h2>
+      <textarea id="inDecode" placeholder="Pegá o escribí acá los ceros y unos (se ignoran espacios y saltos de línea). Se lee de izquierda a derecha y de arriba hacia abajo, con el tamaño y modo de color actuales."></textarea>
+      <div class="row" style="margin-top:8px">
+        <button id="btnDecode" class="primary">🧩 Dibujar desde el código</button>
+      </div>
+      <div class="msg" id="decMsg"></div>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast">¡Copiado!</div>
+
+<script>
+(() => {
+  // ---------- Paletas: el índice es el valor binario ----------
+  const PALETTES = {
+    1: [ {n:'Blanco',c:'#ffffff'}, {n:'Negro',c:'#111111'} ],
+    2: [ {n:'Blanco',c:'#ffffff'}, {n:'Negro',c:'#111111'}, {n:'Rojo',c:'#e53935'}, {n:'Azul',c:'#1e63e9'} ],
+    3: [ {n:'Blanco',c:'#ffffff'}, {n:'Negro',c:'#111111'}, {n:'Rojo',c:'#e53935'}, {n:'Verde',c:'#2fb14a'},
+         {n:'Azul',c:'#1e63e9'}, {n:'Amarillo',c:'#ffd600'}, {n:'Naranja',c:'#ff8a00'}, {n:'Violeta',c:'#8e44ec'} ]
+  };
+  const DARK = new Set(['Negro','Rojo','Azul','Verde','Violeta']);
+
+  const TEMPLATES = {
+    corazon: ['01100110','11111111','11111111','11111111','01111110','00111100','00011000','00000000'],
+    fantasma:['00111100','01111110','11111111','10011001','11111111','11111111','11111111','10100101'],
+    espada:  ['00000011','00000111','00001110','01011100','00111000','00110000','01001000','10000000'],
+    carita:  ['00111100','01000010','10100101','10000001','10100101','10011001','01000010','00111100'],
+    flecha:  ['00011000','00111100','01111110','11111111','00011000','00011000','00011000','00011000']
+  };
+
+  // ---------- Estado ----------
+  let cols = 8, rows = 8, bpp = 1, color = 1, tool = 'pen';
+  let data = new Array(cols*rows).fill(0);
+  let history = [];
+  let painting = false, paintVal = 1;
+
+  const $ = id => document.getElementById(id);
+  const board = $('board'), codeEl = $('code');
+  let gridEl, cells = [], spans = [];
+
+  const bin = v => v.toString(2).padStart(bpp,'0');
+  const pal = () => PALETTES[bpp];
+
+  // ---------- Paleta UI ----------
+  function renderPalette(){
+    const p = $('palette'); p.innerHTML = '';
+    pal().forEach((col,i) => {
+      const d = document.createElement('div');
+      d.className = 'swatch' + (i===color?' sel':'');
+      d.innerHTML = `<b style="background:${col.c}"></b><span>${col.n}<code>${bin(i)}</code></span>`;
+      d.onclick = () => { color = i; if(tool==='erase') setTool('pen'); renderPalette(); };
+      p.appendChild(d);
+    });
+  }
+
+  // ---------- Grilla ----------
+  function buildBoard(){
+    const showHead = $('chkHead').checked;
+    board.innerHTML = '';
+    board.style.gridTemplateColumns = showHead ? `auto auto` : `auto`;
+    gridEl = document.createElement('div');
+    gridEl.className = 'grid';
+    gridEl.style.gridTemplateColumns = `repeat(${cols}, var(--cell))`;
+    cells = [];
+    for(let i=0;i<cols*rows;i++){
+      const c = document.createElement('div');
+      c.className = 'cell'; c.dataset.i = i;
+      gridEl.appendChild(c); cells.push(c);
+    }
+    if(showHead){
+      const corner = document.createElement('div'); board.appendChild(corner);
+      const top = document.createElement('div');
+      top.style.display='grid'; top.style.gridTemplateColumns=`repeat(${cols}, var(--cell))`; top.style.paddingLeft='2px';
+      for(let x=0;x<cols;x++){ const h=document.createElement('div'); h.className='hd'; h.style.height='18px'; h.textContent=x+1; top.appendChild(h); }
+      board.appendChild(top);
+      const left = document.createElement('div');
+      left.style.display='grid'; left.style.gridTemplateRows=`repeat(${rows}, var(--cell))`; left.style.paddingTop='2px';
+      for(let y=0;y<rows;y++){ const h=document.createElement('div'); h.className='hd'; h.style.width='24px'; h.textContent=y+1; left.appendChild(h); }
+      board.appendChild(left);
+    }
+    board.appendChild(gridEl);
+    applyViewOpts();
+    paintAll();
+  }
+
+  function applyViewOpts(){
+    gridEl.classList.toggle('nonum', !$('chkNum').checked);
+    gridEl.classList.toggle('nogrid', !$('chkGrid').checked);
+  }
+
+  function paintCell(i){
+    const v = data[i], col = pal()[v], c = cells[i];
+    c.style.backgroundColor = col.c;
+    c.textContent = bin(v);
+    c.classList.toggle('dark', DARK.has(col.n));
+  }
+  function paintAll(){ for(let i=0;i<data.length;i++) paintCell(i); renderCode(); renderStats(); }
+
+  // ---------- Código ----------
+  function renderCode(){
+    const strip = document.querySelector('input[name=fmt]:checked').value === 'strip';
+    spans = [];
+    const frag = document.createDocumentFragment();
+    const pad = String(rows).length;
+    for(let y=0;y<rows;y++){
+      if(!strip){
+        const ln = document.createElement('span'); ln.className='ln';
+        ln.textContent = `F${String(y+1).padStart(pad,'0')}  `; frag.appendChild(ln);
+      }
+      for(let x=0;x<cols;x++){
+        const i = y*cols+x, s = document.createElement('span');
+        s.className = 'b ' + (data[i] ? 'one':'zero');
+        s.textContent = bin(data[i]); s.dataset.i = i;
+        frag.appendChild(s); spans.push(s);
+        if(bpp>1 && !(x===cols-1 && !strip)) frag.appendChild(document.createTextNode(' '));
+      }
+      if(!strip) frag.appendChild(document.createTextNode('\n'));
+    }
+    codeEl.innerHTML=''; codeEl.appendChild(frag);
+  }
+  function codeText(){
+    const strip = document.querySelector('input[name=fmt]:checked').value === 'strip';
+    const sep = bpp>1 ? ' ' : '';
+    const lines = [];
+    for(let y=0;y<rows;y++) lines.push(data.slice(y*cols,(y+1)*cols).map(bin).join(sep));
+    return strip ? lines.join(sep) : lines.join('\n');
+  }
+  function renderStats(){
+    const px = cols*rows, bits = px*bpp;
+    $('sPix').textContent = `${px}`;
+    $('sBpp').textContent = `${bpp}`;
+    $('sBits').innerHTML = `${bits} <em>bits</em>`;
+    const by = bits/8;
+    $('sBytes').innerHTML = `${Number.isInteger(by)?by:by.toFixed(2)} <em>bytes</em>`;
+  }
+
+  // ---------- Resaltado cruzado ----------
+  let hlIdx = -1;
+  function highlight(i){
+    if(hlIdx>=0){ cells[hlIdx]?.classList.remove('hl'); spans[hlIdx]?.classList.remove('hl'); }
+    hlIdx = i;
+    if(i>=0){ cells[i]?.classList.add('hl'); spans[i]?.classList.add('hl'); }
+  }
+  codeEl.addEventListener('mouseover', e => { if(e.target.dataset.i) highlight(+e.target.dataset.i); });
+  codeEl.addEventListener('mouseleave', () => highlight(-1));
+
+  // ---------- Dibujo ----------
+  function snapshot(){ history.push({cols,rows,bpp,data:data.slice()}); if(history.length>60) history.shift(); }
+  function setPixel(i,v){
+    if(data[i]===v) return;
+    data[i]=v; paintCell(i);
+    if(spans[i]){ spans[i].textContent = bin(v); spans[i].className = 'b ' + (v?'one':'zero') + (i===hlIdx?' hl':''); }
+  }
+  function flood(start,v){
+    const target = data[start]; if(target===v) return;
+    const st=[start];
+    while(st.length){
+      const i=st.pop(); if(data[i]!==target) continue;
+      data[i]=v; const x=i%cols, y=(i/cols)|0;
+      if(x>0) st.push(i-1); if(x<cols-1) st.push(i+1);
+      if(y>0) st.push(i-cols); if(y<rows-1) st.push(i+cols);
+    }
+    paintAll();
+  }
+  const cellAt = (x,y) => { const el=document.elementFromPoint(x,y); return el && el.classList.contains('cell') ? +el.dataset.i : -1; };
+
+  board.addEventListener('contextmenu', e => e.preventDefault());
+  board.addEventListener('pointerdown', e => {
+    const i = cellAt(e.clientX,e.clientY); if(i<0) return;
+    e.preventDefault(); snapshot();
+    const erase = e.button===2 || tool==='erase';
+    paintVal = erase ? 0 : color;
+    if(tool==='fill' && e.button!==2){ flood(i,paintVal); return; }
+    painting = true; setPixel(i,paintVal);
+  });
+  window.addEventListener('pointermove', e => {
+    const i = cellAt(e.clientX,e.clientY);
+    if(!painting){ if(e.target.classList?.contains('cell')) highlight(i); return; }
+    if(i>=0){ setPixel(i,paintVal); highlight(i); }
+  });
+  window.addEventListener('pointerup', () => painting=false);
+  board.addEventListener('mouseleave', () => { if(!painting) highlight(-1); });
+
+  // ---------- Herramientas ----------
+  function setTool(t){
+    tool=t;
+    $('tPen').classList.toggle('active',t==='pen');
+    $('tErase').classList.toggle('active',t==='erase');
+    $('tFill').classList.toggle('active',t==='fill');
+  }
+  $('tPen').onclick=()=>setTool('pen');
+  $('tErase').onclick=()=>setTool('erase');
+  $('tFill').onclick=()=>setTool('fill');
+  $('btnClear').onclick=()=>{ snapshot(); data.fill(0); paintAll(); };
+  $('btnInvert').onclick=()=>{
+    if(bpp!==1){ toast('Invertir solo funciona en blanco y negro', true); return; }
+    snapshot(); data = data.map(v=>v?0:1); paintAll();
+  };
+  function undo(){
+    const h = history.pop(); if(!h) return;
+    cols=h.cols; rows=h.rows; bpp=h.bpp; data=h.data;
+    $('inCols').value=cols; $('inRows').value=rows; $('m'+bpp).checked=true;
+    if(color>=pal().length) color=1;
+    renderPalette(); buildBoard();
+  }
+  $('btnUndo').onclick=undo;
+
+  // ---------- Tamaño ----------
+  function resize(nc,nr){
+    nc=Math.max(2,Math.min(32,nc|0||8)); nr=Math.max(2,Math.min(32,nr|0||8));
+    snapshot();
+    const nd = new Array(nc*nr).fill(0);
+    for(let y=0;y<Math.min(rows,nr);y++) for(let x=0;x<Math.min(cols,nc);x++) nd[y*nc+x]=data[y*cols+x];
+    cols=nc; rows=nr; data=nd;
+    $('inCols').value=cols; $('inRows').value=rows;
+    autoZoom(); buildBoard();
+  }
+  function autoZoom(){
+    const z = Math.max(12, Math.min(60, Math.floor(560/Math.max(cols,rows))));
+    $('inZoom').value=z; document.documentElement.style.setProperty('--cell', z+'px');
+  }
+  $('btnResize').onclick=()=>resize(+$('inCols').value, +$('inRows').value);
+  ['inCols','inRows'].forEach(id=>$(id).addEventListener('keydown',e=>{ if(e.key==='Enter') $('btnResize').click(); }));
+  document.querySelectorAll('[data-size]').forEach(b=>b.onclick=()=>resize(+b.dataset.size,+b.dataset.size));
+  $('inZoom').oninput=e=>document.documentElement.style.setProperty('--cell', e.target.value+'px');
+
+  // ---------- Modo de color ----------
+  document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{
+    snapshot();
+    bpp=+r.value;
+    const max = pal().length;
+    data = data.map(v => v<max ? v : 1); // colores que no existen pasan a negro
+    if(color>=max) color=1;
+    renderPalette(); paintAll();
+  });
+
+  // ---------- Opciones de vista ----------
+  $('chkNum').onchange=applyViewOpts;
+  $('chkGrid').onchange=applyViewOpts;
+  $('chkHead').onchange=buildBoard;
+  document.querySelectorAll('input[name=fmt]').forEach(r=>r.onchange=renderCode);
+
+  // ---------- Plantillas ----------
+  document.querySelectorAll('[data-tpl]').forEach(b=>b.onclick=()=>{
+    snapshot();
+    const t = TEMPLATES[b.dataset.tpl];
+    cols=8; rows=8; data = t.join('').split('').map(Number);
+    $('inCols').value=8; $('inRows').value=8;
+    autoZoom(); buildBoard();
+  });
+
+  // ---------- Copiar ----------
+  $('btnCopy').onclick=async()=>{
+    const txt = codeText();
+    try{ await navigator.clipboard.writeText(txt); }
+    catch{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+    toast('¡Código copiado!');
+  };
+
+  // ---------- Decodificar ----------
+  $('btnDecode').onclick=()=>{
+    const raw = $('inDecode').value.replace(/[^01]/g,'');
+    const msg = $('decMsg');
+    if(!raw.length){ msg.className='msg warn'; msg.textContent='No encontré ceros ni unos en el texto.'; return; }
+    const need = cols*rows*bpp;
+    snapshot();
+    const max = pal().length;
+    for(let i=0;i<cols*rows;i++){
+      const chunk = raw.substr(i*bpp,bpp);
+      let v = chunk.length===bpp ? parseInt(chunk,2) : 0;
+      data[i] = v<max ? v : 1;
+    }
+    paintAll();
+    if(raw.length===need){ msg.className='msg ok'; msg.textContent=`✔ Perfecto: ${raw.length} bits = ${cols}×${rows} píxeles × ${bpp} bit(s).`; }
+    else if(raw.length<need){ msg.className='msg warn'; msg.textContent=`⚠ Faltan bits: hay ${raw.length} y se necesitan ${need}. El resto quedó en blanco.`; }
+    else { msg.className='msg warn'; msg.textContent=`⚠ Sobran bits: hay ${raw.length} y la matriz usa ${need}. ¿El tamaño o el modo de color son correctos?`; }
+  };
+
+  // ---------- Teclado ----------
+  window.addEventListener('keydown',e=>{
+    if(e.target.matches('input,textarea')) return;
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); return; }
+    const n = parseInt(e.key,10);
+    if(!isNaN(n) && n<pal().length){ color=n; setTool('pen'); renderPalette(); }
+  });
+
+  let tt;
+  function toast(t,warn){
+    const el=$('toast'); el.textContent=t; el.style.background = warn?'var(--warn)':'var(--ok)';
+    el.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>el.classList.remove('show'),1600);
+  }
+
+  // ---------- Inicio ----------
+  renderPalette(); autoZoom(); buildBoard();
+})();
+</script>
+</body>
+</html>
